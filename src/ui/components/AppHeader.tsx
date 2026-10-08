@@ -14,10 +14,11 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle, onNavigate, currentView, children }) => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
-    const { user, signOut } = useAuth();
+    const { user, signOut, error } = useAuth();
 
     return (
         <div style={{ marginBottom: '2rem' }}>
+            {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
             <UserProfileModal
                 isOpen={showProfileModal}
                 onClose={() => setShowProfileModal(false)}
@@ -33,7 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle, onNavigat
                 {subtitle && <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{subtitle}</p>}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
                 {/* Global Actions */}
                 <button
                     className="btn btn-outline"
@@ -77,19 +78,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle, onNavigat
 
                 {/* User avatar + sign out */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {user?.picture
-                        ? <img src={user.picture} alt={user.name} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                        : <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '600', color: '#475569' }}>
-                            {user?.name?.[0]?.toUpperCase() ?? '?'}
-                          </div>
-                    }
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {user?.name?.[0]?.toUpperCase() ?? '?'}
+                    </div>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {user?.name?.split(' ')[0]}
                     </span>
                     <button
                         className="btn btn-outline"
                         style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}
-                        onClick={signOut}
+                        onClick={() => void signOut()}
                     >
                         Sign out
                     </button>

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { StorageService } from '../../services/storage';
 import { WorkflowService } from '../../services/workflow';
 import { ExtractorService } from '../../services/extractor';
-import { GoogleGeminiProvider } from '../../services/ai/providers/gemini';
 import { LetsMCPProvider } from '../../services/ai/providers/letsmcp';
 import type { Job } from '../../domain/job';
 import { generateId } from '../../utils/uuid';
@@ -52,10 +51,9 @@ export const AddJobView: React.FC<AddJobViewProps> = ({ onJobAdded, onCancel }) 
             const settings = StorageService.getSettings();
 
             // 1. Try LetsMCP first (includes LinkedIn scraping)
-            if (settings.aiProvider === 'letsmcp' || !settings.apiKey) {
+            if (settings.aiProvider === 'letsmcp') {
                 try {
                     const mcpProvider = new LetsMCPProvider({
-                        baseUrl: settings.mcpUrl || '',
                         provider: settings.mcpProvider as 'groq' | 'claude' | 'gemini',
                     });
 
@@ -87,40 +85,13 @@ export const AddJobView: React.FC<AddJobViewProps> = ({ onJobAdded, onCancel }) 
                             throw err; // Re-throw to trigger fallback
                         }
                     }
-                    console.warn('LetsMCP unavailable or returned empty, trying Gemini...');
+                    console.warn('LetsMCP unavailable or returned empty, using local fallback.');
                 } catch (err) {
-                    console.warn('LetsMCP extraction failed, falling back to Gemini:', err);
+                    console.warn('LetsMCP extraction failed, using local fallback:', err);
                 }
             }
 
-            // 2. Try Gemini if API Key is configured
-            if (settings.apiKey) {
-                try {
-                    const provider = new GoogleGeminiProvider(settings.apiKey, settings.model);
-                    const aiDetails = await provider.extractJobDetails(contentToAnalyze);
-
-                    if (aiDetails.title || aiDetails.company) {
-                        setExtractionSource('Gemini');
-                        setFormData(prev => ({
-                            ...prev,
-                            title: aiDetails.title || prev.title,
-                            company: aiDetails.company || prev.company,
-                            location: aiDetails.location || prev.location,
-                            description: aiDetails.description || pasteUrl,
-                            source: contentToAnalyze.startsWith('http') ? new URL(contentToAnalyze).hostname : prev.source,
-                            isRemote: aiDetails.location?.toLowerCase().includes('remote') || prev.isRemote,
-                        }));
-                        setIsExtracting(false);
-                        return;
-                    } else {
-                        console.warn('Gemini returned empty details. Using fallback.');
-                    }
-                } catch (err) {
-                    console.warn('Gemini extraction failed, falling back to regex:', err);
-                }
-            }
-
-            // 3. Final fallback: Regex / Basic Extractor
+            // Local fallback: Regex / Basic Extractor
             setExtractionSource('Local');
             const extracted = await ExtractorService.extractJobDetails(contentToAnalyze);
             setFormData(prev => ({

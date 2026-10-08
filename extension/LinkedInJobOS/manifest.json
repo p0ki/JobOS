@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Poki Career OS — local job preview",
+  "version": "3.0.0",
+  "description": "Preview a LinkedIn job only when requested. Export locally; no profile access or backend connection.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Preview a job locally"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
+  }
+}

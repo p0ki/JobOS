@@ -1,0 +1,7 @@
+body { box-sizing: border-box; width: 360px; margin: 0; padding: 18px; font: 14px/1.5 system-ui, sans-serif; color: #0f172a; }
+h1 { font-size: 18px; }
+button { width: 100%; padding: 10px; border: 0; border-radius: 6px; background: #0f172a; color: white; cursor: pointer; font: inherit; }
+button:disabled { background: #64748b; cursor: default; }
+button:focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f1f5f9; padding: 10px; }
+.note { color: #475569; font-size: 12px; }

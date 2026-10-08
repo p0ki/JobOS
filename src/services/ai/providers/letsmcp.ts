@@ -4,22 +4,16 @@
  */
 
 import type { AIService, JobDetailsExtraction } from '../ai';
-
-// Default to localhost:3002, can be overridden via settings
-// Default to relative path (uses Vite proxy), can be overridden via settings
-const DEFAULT_MCP_URL = '';
+import { apiFetch } from '../../api';
 
 export interface LetsMCPConfig {
-    baseUrl?: string;
     provider?: 'groq' | 'claude' | 'gemini';
 }
 
 export class LetsMCPProvider implements AIService {
-    private baseUrl: string;
     private preferredProvider?: string;
 
     constructor(config?: LetsMCPConfig) {
-        this.baseUrl = config?.baseUrl || DEFAULT_MCP_URL;
         this.preferredProvider = config?.provider;
     }
 
@@ -28,7 +22,7 @@ export class LetsMCPProvider implements AIService {
      */
     async isAvailable(): Promise<boolean> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/status`, {
+            const response = await apiFetch('/api/status', {
                 method: 'GET',
                 signal: AbortSignal.timeout(3000), // 3 second timeout
             });
@@ -45,7 +39,7 @@ export class LetsMCPProvider implements AIService {
      */
     async hasAIProvider(): Promise<boolean> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/status`, {
+            const response = await apiFetch('/api/status', {
                 method: 'GET',
                 signal: AbortSignal.timeout(3000),
             });
@@ -58,22 +52,10 @@ export class LetsMCPProvider implements AIService {
     }
 
     /**
-     * Validate API key - for LetsMCP we just check server availability
-     * (no API key needed; the parameter is required by the AIService interface)
-     */
-    async validateKey(): Promise<string | null> {
-        const available = await this.isAvailable();
-        if (available) {
-            return 'letsmcp'; // Return a provider name to indicate success
-        }
-        throw new Error('LetsMCP server is not available');
-    }
-
-    /**
      * Generate text using the MCP server's AI
      */
     async generateText(prompt: string): Promise<string> {
-        const response = await fetch(`${this.baseUrl}/api/generate`, {
+        const response = await apiFetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -103,7 +85,7 @@ export class LetsMCPProvider implements AIService {
 
         // Use the extract-job endpoint which handles LinkedIn URLs internally
         // It will use the scraper for LinkedIn URLs and AI for text
-        const response = await fetch(`${this.baseUrl}/api/extract-job`, {
+        const response = await apiFetch('/api/extract-job', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -131,7 +113,7 @@ export class LetsMCPProvider implements AIService {
         gaps: string[];
         recommendations: string[];
     }> {
-        const response = await fetch(`${this.baseUrl}/api/analyze-resume`, {
+        const response = await apiFetch('/api/analyze-resume', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -162,7 +144,7 @@ export class LetsMCPProvider implements AIService {
         intent: string;
         jobDescription?: string;
     }): Promise<{ subject: string; body: string }> {
-        const response = await fetch(`${this.baseUrl}/api/draft-email`, {
+        const response = await apiFetch('/api/draft-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -193,7 +175,7 @@ export class LetsMCPProvider implements AIService {
         companyCulture: string[];
         compensationHints: string;
     }> {
-        const response = await fetch(`${this.baseUrl}/api/parse-jd`, {
+        const response = await apiFetch('/api/parse-jd', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

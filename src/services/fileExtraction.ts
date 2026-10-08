@@ -13,6 +13,7 @@ export const FileExtractionService = {
      * Extracts plain text from a File object (PDF or DOCX).
      */
     async extractText(file: File): Promise<string> {
+        if (file.size > 10 * 1024 * 1024) throw new Error('File is too large. Maximum size is 10 MB.');
         if (file.type === 'application/pdf') {
             return this.parsePdf(file);
         } else if (
@@ -32,19 +33,23 @@ export const FileExtractionService = {
      */
     async parsePdf(file: File): Promise<string> {
         const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false });
         const pdf = await loadingTask.promise;
 
-        let fullText = '';
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-            fullText += `\n--- Page ${i} ---\n${pageText}`;
+        try {
+            if (pdf.numPages > 200) throw new Error('PDF is too large. Maximum length is 200 pages.');
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+                fullText += `\n--- Page ${i} ---\n${pageText}`;
+            }
+            return fullText.trim();
+        } finally {
+            await pdf.destroy();
         }
 
-        return fullText.trim();
     },
 
     /**

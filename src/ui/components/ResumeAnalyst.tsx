@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { StorageService } from '../../services/storage';
-import { GoogleGeminiProvider } from '../../services/ai/providers/gemini';
 import { LetsMCPProvider } from '../../services/ai/providers/letsmcp';
 import type { Artifact } from '../../domain/artifact';
 
@@ -10,7 +9,7 @@ interface ResumeAnalystProps {
 }
 
 export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, artifacts }) => {
-    const [selectedArtifactId, setSelectedArtifactId] = useState<string>('');
+    const [selectedArtifactId, setSelectedArtifactId] = useState<string>(artifacts.find(a => a.type === 'Resume')?.id || '');
     const [analysis, setAnalysis] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -43,64 +42,39 @@ export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, ar
 
         const score = Math.min(100, 50 + (foundKeywords.length * 5));
 
-        return `
-            <div class="analysis-result">
-                <h3>⚠️ Offline Match Score: ~${score}%</h3>
-                <p style="font-style: italic; font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">
-                    <strong>Note:</strong> Used "Local Keyword Matcher" because AI services were unavailable.
-                    <br/>
-                    (LetsMCP: Failed/Unreachable | Gemini: No API Key or Failed)
-                </p>
+        return `Offline match score: ~${score}%
 
-                <h4>🟢 Quick Match (Keywords Found)</h4>
-                <ul>
-                    ${foundKeywords.length > 0 ? foundKeywords.map(k => `<li>${k}</li>`).join('') : '<li>No common tech keywords detected by simple match.</li>'}
-                </ul>
+This estimate uses only a local keyword matcher.
 
-                <h4>🔴 Potential Gaps (Keywords in JD but not Resume)</h4>
-                <ul>
-                    ${missingKeywords.length > 0 ? missingKeywords.map(k => `<li>${k}</li>`).join('') : '<li>No obvious missing keywords from common list.</li>'}
-                </ul>
+Keywords found
+${foundKeywords.join(', ') || 'No common keywords detected.'}
 
-                <h4>💡 Recommendation</h4>
-                <ul>
-                    <li>Check if you have these missing keywords in your resume but phrased differently.</li>
-                    <li>Ensure your formatting is readable.</li>
-                </ul>
-            </div>
-        `;
+Potential gaps
+${missingKeywords.join(', ') || 'No obvious missing keywords.'}
+
+Check alternate phrasing and make your formatting readable.`;
     };
 
-    // Convert structured analysis to HTML
-    const formatAnalysisAsHtml = (data: {
+    // Treat every AI response as text. Never interpret provider output as browser markup.
+    const formatAnalysis = (data: {
         matchScore: number;
         strengths: string[];
         gaps: string[];
         recommendations: string[];
-    }, source: string): string => {
-        return `
-            <div class="analysis-result">
-                <h3>Match Score: ${data.matchScore}%</h3>
-                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">
-                    (Generated via ${source})
-                </p>
+    }): string => {
+        const list = (value: unknown) => Array.isArray(value)
+            ? value.filter(item => typeof item === 'string').map(item => `• ${item}`).join('\n') || 'None listed.'
+            : 'None listed.';
+        return `Match score: ${Math.max(0, Math.min(100, data.matchScore))}%
 
-                <h4>🟢 Strengths</h4>
-                <ul>
-                    ${data.strengths.length > 0 ? data.strengths.map(s => `<li>${s}</li>`).join('') : '<li>No specific strengths identified.</li>'}
-                </ul>
+Strengths
+${list(data.strengths)}
 
-                <h4>🔴 Critical Gaps</h4>
-                <ul>
-                    ${data.gaps.length > 0 ? data.gaps.map(g => `<li>${g}</li>`).join('') : '<li>No critical gaps identified.</li>'}
-                </ul>
+Gaps
+${list(data.gaps)}
 
-                <h4>💡 Recommendations</h4>
-                <ul>
-                    ${data.recommendations.length > 0 ? data.recommendations.map(r => `<li>${r}</li>`).join('') : '<li>No specific recommendations.</li>'}
-                </ul>
-            </div>
-        `;
+Recommendations
+${list(data.recommendations)}`;
     };
 
     const handleAnalyze = async () => {
@@ -117,10 +91,9 @@ export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, ar
         const settings = StorageService.getSettings();
 
         // 1. Try LetsMCP first
-        if (settings.aiProvider === 'letsmcp' || !settings.apiKey) {
+        if (settings.aiProvider === 'letsmcp') {
             try {
                 const mcpProvider = new LetsMCPProvider({
-                    baseUrl: settings.mcpUrl || '',
                     provider: settings.mcpProvider as 'groq' | 'claude' | 'gemini',
                 });
 
@@ -131,67 +104,22 @@ export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, ar
                     const result = await mcpProvider.analyzeResume(jobDescription, resume.content);
 
                     if (result && typeof result.matchScore === 'number') {
-                        setAnalysisSource(`LetsMCP (${settings.mcpProvider || 'groq'})`);
-                        setAnalysis(formatAnalysisAsHtml(result, `LetsMCP - ${settings.mcpProvider || 'groq'}`));
+                        setAnalysisSource(`LetsMCP (${settings.mcpProvider || 'server default'})`);
+                        setAnalysis(formatAnalysis(result));
                         setLoading(false);
                         return;
                     }
                 } else {
-                    console.warn('LetsMCP unavailable or has no AI, trying Gemini...');
+                    console.warn('LetsMCP unavailable or has no AI, using local fallback.');
                     setError(`LetsMCP Check Failed: Available=${isAvailable}, HasAI=${hasAI}`);
                 }
             } catch (err: unknown) {
-                console.warn('LetsMCP analysis failed, falling back to Gemini:', err);
+                console.warn('LetsMCP analysis failed, using local fallback:', err);
                 setError(`LetsMCP Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
         }
 
-        // 2. Try Gemini if API Key is configured
-        if (settings.apiKey) {
-            try {
-                const provider = new GoogleGeminiProvider(settings.apiKey, settings.model);
-                const prompt = `
-                Role: Expert Recruiter / ATS Specialist.
-                Task: Analyze the fit between the Resume and Job Description.
-
-                Job Description:
-                "${jobDescription}"
-
-                Resume Content:
-                "${resume.content}"
-
-                Output Format:
-                Return raw HTML (no markdown backticks, no \`\`\`html wrapper).
-                Use simple styling:
-                - Use <h3> for headers (Match Score, Strengths, Gaps).
-                - Use <ul> and <li> for lists.
-                - Use <strong> for emphasis.
-                - For Match Score, make it large and bold.
-
-                Example Structure:
-                <div class="analysis-result">
-                  <h3>Match Score: 85%</h3>
-                  <h4>🟢 Strengths</h4>
-                  <ul>...</ul>
-                  <h4>🔴 Critical Gaps</h4>
-                  <ul>...</ul>
-                  <h4>💡 Recommendations</h4>
-                  <ul>...</ul>
-                </div>
-                `;
-
-                let result = await provider.generateText(prompt);
-                result = result.replace(/```html/g, '').replace(/```/g, '');
-                setAnalysisSource(`Gemini (${settings.model})`);
-                setAnalysis(result);
-                setLoading(false);
-                return;
-            } catch (err: unknown) {
-                console.warn('Gemini analysis failed, falling back to local.', err);
-            }
-        }
-
-        // 3. Final fallback: Local analysis
+        // Local fallback: Local analysis
         setAnalysisSource('Local Keyword Matcher');
         const localResult = generateLocalAnalysis(jobDescription, resume.content);
         setAnalysis(localResult);
@@ -280,14 +208,7 @@ export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, ar
                 </div>
             )}
 
-            {/* Debug Info */}
-            <div style={{ marginTop: '1rem', padding: '0.5rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                <ul style={{ margin: '0', padding: '0 0 0 1rem' }}>
-                    <li>LetsMCP Configured: {StorageService.getSettings().aiProvider === 'letsmcp' ? 'Yes' : 'No'}</li>
-                    <li>Client API Key Present: {StorageService.getSettings().apiKey ? 'Yes' : 'No (Skipping Gemini Direct)'}</li>
-                    {error && <li style={{ color: 'red' }}>Error: {error}</li>}
-                </ul>
-            </div>
+            {error && <p role="status" style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>The local AI service is unavailable. Using a local keyword estimate.</p>}
 
             {analysis && (
                 <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
@@ -297,12 +218,11 @@ export const ResumeAnalyst: React.FC<ResumeAnalystProps> = ({ jobDescription, ar
                             maxHeight: '300px',
                             overflowY: 'auto',
                             paddingRight: '0.5rem',
-                            whiteSpace: 'normal',
+                            whiteSpace: 'pre-wrap',
                             lineHeight: '1.6',
                             fontSize: '0.95rem'
                         }}
-                        dangerouslySetInnerHTML={{ __html: analysis }}
-                    />
+                    >{analysis}</div>
                 </div>
             )}
         </div>

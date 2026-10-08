@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local job preview</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Local job preview</h1>
+  <p>Preview the job on your active LinkedIn tab. Nothing is uploaded or saved automatically.</p>
+  <button id="preview" type="button">Preview job</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <pre id="result" aria-label="Job preview" hidden></pre>
+  <button id="download" type="button" disabled>Download reviewed JSON</button>
+  <p class="note">Profile capture and direct import are disabled until secure pairing is available. The downloaded file remains on your computer.</p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

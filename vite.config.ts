@@ -1,5 +1,4 @@
 /// <reference types="vitest" />
-/// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react-swc'
 
@@ -8,28 +7,31 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 8080,
-    host: true,
-    allowedHosts: ['37.27.80.77.nip.io'],
+    host: '127.0.0.1',
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
-        changeOrigin: true,
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: false,
         secure: false
       }
     }
   },
   preview: {
     port: 8080,
-    host: true,
+    strictPort: true,
+    host: '127.0.0.1',
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
-        changeOrigin: true,
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: false,
         secure: false
       }
     }
   },
   test: {
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/testSetup.ts'],
     environment: 'happy-dom',
     globals: true,
   },

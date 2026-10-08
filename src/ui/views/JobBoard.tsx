@@ -1,3 +1,5 @@
+import { safeExternalUrl } from '../../utils/urls';
+import { apiFetch } from '../../services/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StorageService } from '../../services/storage';
 import type { Job } from '../../domain/job';
@@ -89,7 +91,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onSelectJob, onNavigate }) => {
 
         // Delete from backend to prevent re-sync
         try {
-            await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            await apiFetch(`${API_URL}/${encodeURIComponent(id)}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Failed to delete job from backend:', error);
         }
@@ -102,7 +104,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onSelectJob, onNavigate }) => {
         syncingRef.current = true;
         setSyncing(true);
         try {
-            const res = await fetch(API_URL);
+            const res = await apiFetch(API_URL);
             if (!res.ok) throw new Error('Failed to fetch jobs');
 
             const data = await res.json();
@@ -207,7 +209,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onSelectJob, onNavigate }) => {
                         </div>
                         <h3 style={{ fontSize: '1.125rem', fontWeight: '500', margin: '0 0 0.5rem' }}>No jobs found</h3>
                         <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto' }}>
-                            Use the JobOS Chrome Extension to scout jobs from LinkedIn, and they will appear here automatically.
+                            Add a synthetic job using Add Job. Extension export is offline and is not imported automatically during Phase 0.
                         </p>
                     </div>
                 ) : (
@@ -345,7 +347,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onSelectJob, onNavigate }) => {
                                     </button>
                                 ) : (
                                     <a
-                                        href={job.url || job.originalLink}
+                                        href={safeExternalUrl(job.url || job.originalLink)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{

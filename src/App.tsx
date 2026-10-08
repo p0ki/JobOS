@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from './ui/layout/DashboardLayout';
 import { DashboardView } from './ui/views/DashboardView';
 import JobBoard from './ui/views/JobBoard';
@@ -9,25 +9,17 @@ import { ExtensionInstallView } from './ui/views/ExtensionInstallView';
 import { LoginView } from './ui/views/LoginView';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
-import { StorageService } from './services/storage';
 import './index.css';
 
 type AppView = 'dashboard' | 'board' | 'add-job' | 'detail' | 'routine' | 'extension-install';
 
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isRoutineModalOpen, setIsRoutineModalOpen] = useState(false);
 
-  // Namespace storage to this user and initialize on login
-  useEffect(() => {
-    if (user) {
-      StorageService.setUserId(user.id);
-      StorageService.initialize();
-    }
-  }, [user]);
-
+  if (loading) return <p role="status" style={{ padding: '2rem' }}>Checking local session…</p>;
   if (!user) return <LoginView />;
 
   const handleNavigate = (view: AppView) => {

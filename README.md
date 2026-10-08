@@ -1,157 +1,24 @@
-# JobOS
+# Poki Career OS: Phase 0 frontend
 
-**Your Personal AI-Powered Workspace for the "Job" of Finding a Job.**
+Security-hardening fork of [JobOS](https://github.com/shanebe-ai/JobOS), paired with [p0ki/letsmcp](https://github.com/p0ki/letsmcp). Upstream history and MIT attribution are preserved. Work is isolated to `security/phase-0-hardening`; no deployment or main-branch merge is authorized.
 
-Finding a new role isn't just a task, it's a full-time job. **JobOS** provides the professional-grade tools you need to manage it like one.
+Use synthetic demo data only. The browser no longer accepts a decoded Google JWT as identity or stores AI credentials. Local sign-in uses the paired backend's opaque HttpOnly session. AI stays disabled by default. ChatGPT sign-in and plan usage are future integrations, not implemented or tested in this branch.
 
-We replace the chaos of spreadsheets and disparate notes with a unified "Operating System" designed to manage your pipeline, track your professional network, and leverage AI to maximize your productivity. Treat your search with the seriousness it deserves.
+## Safe local setup
 
-> **Portfolio status:** Active project, currently intended for local installation. No public live demo is claimed.
+Use Node 24 LTS and the checked-in lockfile. Install with `npm ci --ignore-scripts`, then run `npm run dev`. Vite listens on `127.0.0.1:8080` and proxies `/api/*` to `127.0.0.1:3002`. Set up the paired backend's private data directory and owner passphrase as described in its README. Use the exact default origin `http://127.0.0.1:8080`; don't mix localhost and 127.0.0.1.
 
-## Product tour
+No browser `.env` credential is required. Never use `VITE_*` variables for secrets. Old browser provider keys/backend destinations are purged from settings on read/import/export; unverified cached authentication is discarded. Browser demo/CRM data still uses localStorage, so this is not yet a private multi-user database. Only invented fixtures were used during validation.
 
-Screenshots from a local run with demo data (September 2026).
+The LinkedIn extension is reviewable under `extension/LinkedInJobOS/`. It performs manual, bounded job preview and local JSON download only. It cannot upload to the backend, scrape profiles, or send to AI. See the in-app installation view and the [extension audit](docs/EXTENSION_AUDIT.md). Existing copies of the old extension are outside this repository's control.
 
-**Daily dashboard**: daily goal progress, active pipeline, response rate, application streak, follow-up reminders, and the daily routine.
+## Validation and evidence
 
-![JobOS daily dashboard](docs/screenshots/jobos-1-dashboard.png)
+- `npm run lint`
+- `npm run build`
+- `npm test -- --run`
+- `node --test tests/extension-security.test.mjs`
+- `python3 scripts/build-extension.py --check`
+- `npm audit --audit-level=low`
 
-**Job board**: kanban-style pipeline from Saved to Applied, with per-card status, company, location, and quick actions.
-
-![JobOS job board](docs/screenshots/jobos-2-board.png)
-
-**Job detail**: overview, company research, and interview prep tabs, plus AI suggested actions and the Resume Analyst (powered by [LetsMCP](https://github.com/shanebe-ai/letsmcp)).
-
-![JobOS job detail view](docs/screenshots/jobos-3-detail.png)
-
-## Architecture
-
-```mermaid
-flowchart LR
-  U[User] --> W[JobOS React + TypeScript]
-  X[Chrome extension] --> W
-  W --> A[Google OAuth]
-  W --> D[Local browser storage]
-  W --> M[LetsMCP REST service]
-  M --> P[Configured AI provider]
-  M --> B[Browser extraction when enabled]
-```
-
-## 🚀 Features
-
-- **Google Sign-In**: Secure authentication. All data is segregated per Google account
-- **LinkedIn for JobOS Chrome Extension**: One-click job scraping + profile sync directly from LinkedIn
-  - Extracts title, company, location, and work type (Remote/Hybrid/On-site)
-  - Preserves HTML formatting in job descriptions
-  - Save your own LinkedIn profile to auto-populate your JobOS profile
-  - Auto-syncs to JobOS dashboard
-- **Kanban-Style Job Board**: Visualize your job search pipeline from "Saved" to "Offer"
-- **Daily Dashboard**: A centralized command center to track active applications and pipeline metrics
-- **Application Management**: Keep track of every detail (job descriptions, contacts, and interview notes) in one place
-- **Contact Tracking**: Manage relationships with recruiters, hiring managers, and referrals
-- **Engagement Log**: Track all outreach, follow-ups, and interview activities
-- **My Routine**: Daily habit tracker with streak gamification to maintain momentum
-- **Data Resilience**: Export/Import your data to JSON backups or fully reset your workspace
-- **AI Copilot** (requires [LetsMCP](https://github.com/shanebe-ai/letsmcp)):
-  - **Magic Paste**: Extract job details from pasted text or LinkedIn URLs
-  - **Outreach Drafter**: Generate personalized cold outreach emails and follow-ups
-  - **Resume Analyst**: Analyze your resume against job descriptions to identify gaps and keywords
-  - **Profile Parser**: AI-extracts your LinkedIn profile into structured data
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 19, TypeScript
-- **Build Tool**: Vite
-- **Auth**: Google Identity Services (GSI). Client-side JWT, no backend required
-- **Styling**: Modern CSS3 (Variables, Flexbox/Grid)
-- **State Management**: React Hooks & Context
-- **Testing**: Vitest, React Testing Library
-- **Linting**: ESLint
-
-## 📦 Getting Started
-
-### Prerequisites
-
-- Node.js (v18 or higher)
-- npm
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/shanebe-ai/jobos.git
-   cd jobos
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Configure environment variables: copy `.env.example` to `.env` and fill in your values:
-   ```bash
-   cp .env.example .env
-   ```
-   | Variable | Description |
-   |---|---|
-   | `VITE_GOOGLE_CLIENT_ID` | Google OAuth 2.0 Web Client ID |
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-5. Open your browser at `http://localhost:8080`.
-   - The app proxies `/api/*` requests to the backend at `http://localhost:3002`. Ensure [letsmcp](https://github.com/shanebe-ai/letsmcp) is running there for AI features.
-
-### Google OAuth Setup
-
-JobOS uses Google Sign-In for authentication. To configure it:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**
-2. Create an **OAuth 2.0 Client ID** → Web application
-3. Add your domain to **Authorized JavaScript origins**:
-   - Local dev: `http://localhost:8080`
-   - Remote server: use a domain (Google does not accept raw IPs, see nip.io tip below)
-4. Copy the Client ID into your `.env`:
-   ```
-   VITE_GOOGLE_CLIENT_ID=your_client_id_here
-   ```
-
-> **Tip: Hosting on a raw IP?** Google OAuth requires a domain name. Use [nip.io](https://nip.io). If your server IP is `1.2.3.4`, your domain becomes `1.2.3.4.nip.io` (resolves automatically). Add `http://1.2.3.4.nip.io:8080` as your authorized origin and set `allowedHosts: ['1.2.3.4.nip.io']` in `vite.config.ts`.
-
-### Chrome Extension Setup
-
-The **LinkedIn for JobOS** extension lets you save jobs and sync your profile directly from LinkedIn.
-
-1. **Download** `LinkedInJobOS.zip` from the JobOS dashboard (Extension Install page) or from `/public/LinkedInJobOS.zip`
-
-2. **Install** in Chrome:
-   - Open `chrome://extensions`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the extracted `LinkedInJobOS` folder
-
-3. **Usage**:
-   - On any **LinkedIn job posting**: click "Save to JobOS" (bottom right)
-   - On your **own LinkedIn profile**: click "Save Profile to JobOS" to import your info
-
-## 🧪 Running Tests
-
-```bash
-npm test
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+See [Phase 0 report](docs/PHASE0_REPORT.md), [frontend security](docs/FRONTEND_SECURITY.md), [extension audit](docs/EXTENSION_AUDIT.md), and [supply chain](docs/SUPPLY_CHAIN.md) for exact baseline IDs, findings, tested boundaries and limitations. CI includes security checks on hardening branches. Author deployment automation was removed; this branch offers no production deployment flow.

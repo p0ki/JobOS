@@ -1,32 +1,45 @@
-name: CI
-
+name: Phase 0 security CI
 on:
   push:
-    branches: [main]
+    branches: [main, 'security/**']
   pull_request:
-    branches: [main]
-
+permissions:
+  contents: read
+concurrency:
+  group: phase0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  build:
+  validation:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, verified official tag
         with:
-          node-version: 20
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, verified official tag
+        with:
+          node-version: '24'
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Dependency audit (all severities)
+        run: npm audit --audit-level=low
+      - name: Install checksum-pinned secret scanner
+        run: bash scripts/install-security-scanner.sh "$RUNNER_TEMP/poki-gitleaks"
+      - name: Verify scanner rejects synthetic secrets and unsafe configuration
+        run: GITLEAKS_BIN="$RUNNER_TEMP/poki-gitleaks/gitleaks" node scripts/security-scan.test.mjs
+      - name: Redacted history and source secret scans
+        run: GITLEAKS_BIN="$RUNNER_TEMP/poki-gitleaks/gitleaks" node scripts/security-scan.mjs
       - name: Lint
         run: npm run lint
-
-      - name: Typecheck and build
+      - name: Build
         run: npm run build
-
-      - name: Test
+      - name: Frontend security and workflow tests
         run: npm test -- --run
+      - name: Real synthetic DOCX parsing and dependency compatibility
+        run: node --test tests/docx-dependency.test.mjs
+      - name: Extension security tests
+        run: node tests/extension-security.test.mjs
+      - name: Deterministic extension archive/source parity
+        run: python3 scripts/build-extension.py --check

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../services/api';
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../../services/storage';
 import type { CompanyResearchData } from '../../domain/research';
@@ -68,8 +69,7 @@ export const CompanyResearchTab: React.FC<CompanyResearchTabProps> = ({ jobId, c
         setAiError(null);
         try {
             const settings = StorageService.getSettings();
-            const baseUrl = settings.mcpUrl || '';
-            const res = await fetch(`${baseUrl}/api/research`, {
+            const res = await apiFetch('/api/research', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

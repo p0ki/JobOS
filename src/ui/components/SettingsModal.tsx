@@ -1,6 +1,6 @@
+import { apiFetch } from '../../services/api';
 import React, { useState } from 'react';
 import { StorageService } from '../../services/storage';
-import { GoogleGeminiProvider } from '../../services/ai/providers/gemini';
 
 import { ConfirmationModal } from './ConfirmationModal';
 
@@ -10,10 +10,6 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-    const [apiKey, setApiKey] = useState('');
-    const [status, setStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
-    const [statusMessage, setStatusMessage] = useState('');
-
     // Import Flow State
     const [importWarningOpen, setImportWarningOpen] = useState(false);
     const [importSuccessOpen, setImportSuccessOpen] = useState(false);
@@ -23,49 +19,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     // Reset/Erase Flow State
     const [resetWarningOpen, setResetWarningOpen] = useState(false);
     const [eraseWarningOpen, setEraseWarningOpen] = useState(false);
-
-    // Reset form state whenever the modal is opened
-    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-    if (prevIsOpen !== isOpen) {
-        setPrevIsOpen(isOpen);
-        if (isOpen) {
-            const settings = StorageService.getSettings();
-            setApiKey(settings.apiKey || '');
-            setStatus('idle');
-            setStatusMessage('');
-        }
-    }
-
-    const handleSave = async () => {
-        setStatus('validating');
-        setStatusMessage('Finding best model...');
-
-        const provider = new GoogleGeminiProvider();
-        try {
-            const validModelName = await provider.validateKey(apiKey.trim()); // Returns model name or null
-
-            if (validModelName) {
-                // Save the specific model that worked (e.g., 'gemini-pro' vs 'gemini-1.5-flash')
-                StorageService.saveSettings({
-                    aiProvider: 'gemini',
-                    apiKey: apiKey.trim(),
-                    model: validModelName
-                });
-                setStatus('success');
-                setStatusMessage(`Connected! Using model: ${validModelName}`);
-                setTimeout(() => {
-                    onClose();
-                }, 1500);
-            } else {
-                setStatus('error');
-                setStatusMessage('Invalid API Key or no supported models found.');
-            }
-        } catch (error: unknown) {
-            setStatus('error');
-            // Show the actual error message to the user for debugging
-            setStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    };
+    const [erasing, setErasing] = useState(false);
+    const [dataError, setDataError] = useState<string | null>(null);
 
     const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -101,17 +56,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     };
 
     const handleEraseAll = async () => {
-        // Clear backend job queue first to prevent re-sync
+        if (erasing) return;
+        setErasing(true);
+        setEraseWarningOpen(false);
+        setDataError(null);
         try {
-            await fetch('/api/jobs', { method: 'DELETE' });
-        } catch (error) {
-            console.error('Failed to clear backend jobs:', error);
+            // Preserve the local workspace unless the server confirms its queue was cleared.
+            const response = await apiFetch('/api/jobs', { method: 'DELETE', signal: AbortSignal.timeout(10000) });
+            if (!response.ok) throw new Error('Backend deletion was rejected');
+            StorageService.clearAll();
+            window.location.reload();
+        } catch {
+            setDataError('Could not erase data on the local server. Your browser workspace has been preserved. Sign in or try again when the server is available.');
+        } finally {
+            setErasing(false);
         }
-
-        StorageService.clearAll();
-        // Maybe preserve settings? The user said "erase all data", implying a fresh start.
-        // Usually safe to wipe everything for a true hard reset.
-        window.location.reload();
     };
 
     if (!isOpen) return null;
@@ -144,57 +103,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
                 </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>AI Provider</label>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                            <input type="radio" checked readOnly />
-                            Google Gemini
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#999', cursor: 'not-allowed' }}>
-                            <input type="radio" disabled />
-                            OpenAI (Coming Soon)
-                        </label>
-                    </div>
-                </div>
+                {dataError && <p role="alert" style={{ color: '#b91c1c' }}>{dataError}</p>}
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                        Gemini API Key
-                        <a
-                            href="https://aistudio.google.com/app/apikey"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: '0.8rem', marginLeft: '0.5rem', color: 'var(--primary-color)' }}
-                        >
-                            (Get Key)
-                        </a>
-                    </label>
-                    <input
-                        type="password"
-                        className="input"
-                        placeholder="AIza..."
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        style={{ width: '100%', fontFamily: 'monospace' }}
-                    />
-                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
-                        Your key is stored locally in your browser. It is never sent to our servers.
-                    </p>
-                </div>
-
-                {status !== 'idle' && (
-                    <div style={{
-                        marginBottom: '1rem',
-                        padding: '0.75rem',
-                        borderRadius: '4px',
-                        fontSize: '0.9rem',
-                        backgroundColor: status === 'error' ? '#fee2e2' : status === 'success' ? '#dcfce7' : '#f3f4f6',
-                        color: status === 'error' ? '#991b1b' : status === 'success' ? '#166534' : '#1f2937'
-                    }}>
-                        {statusMessage}
-                    </div>
-                )}
+                <p>AI requests use the authenticated local server. Provider secrets and server addresses cannot be stored in this browser.</p>
 
                 <div style={{ marginBottom: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
                     <h3 style={{ fontSize: '1rem', marginTop: 0, marginBottom: '1rem' }}>💾 Data Management</h3>
@@ -264,10 +175,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 </div>
                                 <button
                                     className="btn btn-outline"
-                                    onClick={() => setEraseWarningOpen(true)}
+                                    onClick={() => { setDataError(null); setEraseWarningOpen(true); }}
+                                    disabled={erasing}
                                     style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)' }}
                                 >
-                                    🗑️ Erase All
+                                    {erasing ? 'Erasing…' : '🗑️ Erase All'}
                                 </button>
                             </div>
                         </div>
@@ -276,13 +188,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
                     <button className="btn btn-outline" onClick={onClose}>Done</button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleSave}
-                        disabled={!apiKey || status === 'validating'}
-                    >
-                        {status === 'validating' ? 'Verifying...' : 'Test & Save Key'}
-                    </button>
+
                 </div>
 
                 {/* Confirm Import Warning */}

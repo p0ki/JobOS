@@ -2,10 +2,10 @@ import React from 'react';
 
 export const ExtensionInstallView: React.FC = () => {
     return (
-        <div style={{ padding: '2rem', maxWidth: '800px' }}>
-            <h1>Install LinkedIn for JobOS</h1>
+        <div style={{ padding: 'clamp(0.5rem, 2vw, 2rem)', maxWidth: '800px' }}>
+            <h1>Install the local LinkedIn job preview</h1>
             <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>
-                Follow these simple steps to install the LinkedIn extension.
+                This reviewed extension previews jobs only after you request it. It has no backend connection.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -55,10 +55,12 @@ export const ExtensionInstallView: React.FC = () => {
                 </section>
 
                 <section style={{ backgroundColor: '#ecfdf5', padding: '1.5rem', borderRadius: '8px', border: '1px solid #10b981' }}>
-                    <h3 style={{ marginBottom: '0.5rem', color: '#059669' }}>✅ Verification</h3>
+                    <h3 style={{ marginBottom: '0.5rem', color: '#059669' }}>Preview and review</h3>
                     <p>
-                        Go to any LinkedIn job page — you'll see a dark <strong>+ Save to JobOS</strong> button in the bottom right.<br />
-                        On your own LinkedIn profile page, you'll see a blue <strong>👤 Save Profile to JobOS</strong> button instead.
+                        Open a LinkedIn job posting, click the extension icon, then choose <strong>Preview job</strong>.
+                        Review the text before choosing <strong>Download reviewed JSON</strong>.
+                        The downloaded file stays on your computer. Profile capture and direct import are disabled
+                        until secure pairing with your signed-in Career OS session is available.
                     </p>
                 </section>
             </div>

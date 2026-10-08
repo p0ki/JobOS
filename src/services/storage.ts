@@ -29,6 +29,21 @@ const STORAGE_KEYS = {
     STAR_STORIES: 'job_os_star_stories',
 };
 
+// A closed settings schema keeps credentials and user-controlled backend URLs out of storage/backups.
+export interface AppSettings {
+    aiProvider: 'letsmcp';
+    mcpProvider?: 'groq' | 'claude' | 'gemini';
+}
+
+function sanitizeSettings(value: unknown): AppSettings {
+    const settings = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const provider = settings.mcpProvider;
+    return {
+        aiProvider: 'letsmcp',
+        ...(provider === 'groq' || provider === 'claude' || provider === 'gemini' ? { mcpProvider: provider } : {}),
+    };
+}
+
 // Per-user namespace — set at login, kept for the session
 let _userId = 'anon';
 const pKey = (k: string) => `${k}__${_userId}`;
@@ -351,21 +366,20 @@ export const StorageService = {
                 try { backup.data[key] = JSON.parse(raw); } catch { /* skip */ }
             }
         });
-        const settings = localStorage.getItem('job_os_settings');
-        if (settings) backup.data['job_os_settings'] = JSON.parse(settings);
+        backup.data['job_os_settings'] = StorageService.getSettings();
         return JSON.stringify(backup, null, 2);
     },
 
     importData: (jsonContent: string): boolean => {
         try {
             const backup = JSON.parse(jsonContent);
-            if (!backup?.meta?.appName || backup.meta.appName !== 'JobOS') return false;
+            if (backup?.meta?.appName !== 'JobOS' || !backup.data || typeof backup.data !== 'object' || Array.isArray(backup.data)) return false;
             Object.entries(backup.data).forEach(([key, value]) => {
                 const validKeys = Object.values(STORAGE_KEYS);
                 if (validKeys.includes(key)) {
                     localStorage.setItem(pKey(key), JSON.stringify(value));
                 } else if (key === 'job_os_settings') {
-                    localStorage.setItem(key, JSON.stringify(value));
+                    localStorage.setItem(key, JSON.stringify(sanitizeSettings(value)));
                 }
             });
             return true;
@@ -403,30 +417,15 @@ export const StorageService = {
         set(STORAGE_KEYS.STAR_STORIES, all);
     },
 
-    // Settings (API Keys, etc)
-    getSettings: () => {
-        const data = localStorage.getItem('job_os_settings');
-        const settings = data ? JSON.parse(data) : {
-            aiProvider: 'letsmcp', // Default to LetsMCP first
-            apiKey: '',
-            model: 'gemini-1.5-flash',
-            mcpUrl: '', // Default to relative path via proxy
-            mcpProvider: 'groq', // Default provider on MCP server
-        };
-
-        // Runtime patch: If URL is explicitly localhost:3002 (old default), clear it to use proxy
-        if (settings.mcpUrl === 'http://localhost:3002') {
-            settings.mcpUrl = '';
-        }
+    // Only non-secret preferences persist. Purge legacy API keys and backend URLs on read.
+    getSettings: (): AppSettings => {
+        let previous: unknown;
+        try { previous = JSON.parse(localStorage.getItem('job_os_settings') || '{}'); } catch { /* replace corrupt settings */ }
+        const settings = sanitizeSettings(previous);
+        localStorage.setItem('job_os_settings', JSON.stringify(settings));
         return settings;
     },
-    saveSettings: (settings: {
-        aiProvider: string;
-        apiKey: string;
-        model?: string;
-        mcpUrl?: string;
-        mcpProvider?: string;
-    }) => {
-        localStorage.setItem('job_os_settings', JSON.stringify(settings));
+    saveSettings: (settings: AppSettings) => {
+        localStorage.setItem('job_os_settings', JSON.stringify(sanitizeSettings(settings)));
     }
 };

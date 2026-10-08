@@ -37,6 +37,7 @@ body {
 
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: 2rem;
   overflow-y: auto;
 }
@@ -113,4 +114,14 @@ label {
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+/* Keep the hardened sign-in/settings/extension flows usable on narrow screens. */
+@media (max-width: 700px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--border-color); }
+  .sidebar h2 { margin-bottom: 0.5rem !important; }
+  .sidebar nav { flex-direction: row !important; flex-wrap: wrap; align-items: center; }
+  .sidebar nav > div { display: flex; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+  .sidebar nav > div > button { width: auto !important; margin-top: 0 !important; }
+  .main-content { padding: 1rem; }
 }

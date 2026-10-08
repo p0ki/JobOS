@@ -186,7 +186,7 @@ export const JobDetail: React.FC<JobDetailProps> = ({ jobId, onBack }) => {
                         <p><strong>Location:</strong> {job.location}</p>
                         {(job as { workType?: string }).workType && <p><strong>Work Type:</strong> {(job as { workType?: string }).workType}</p>}
                         <p><strong>Source:</strong> {job.source}</p>
-                        <div style={{ whiteSpace: 'pre-wrap', marginTop: '1rem' }} dangerouslySetInnerHTML={{ __html: job.description }} />
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: '1rem' }}>{job.description}</div>
                     </div>
 
                     {app.notes && (
